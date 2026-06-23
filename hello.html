@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GroupSync - Pro Collaborative Kanban Workspace</title>
+    <!-- Include Jitsi External API Script for secure P2P Video Framing -->
+    <script src="https://meet.jit.si/external_api.js"></script>
+    <style>
+        /* --- PROFESSIONAL SYSTEM DESIGN TOKENS --- */
+        :root {
+            --bg-app: #f8fafc;
+            --bg-card: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --primary-glow: rgba(79, 70, 229, 0.15);
+
+            --success: #10b981;
+            --success-bg: #ecfdf5;
+            --danger: #ef4444;
+            --danger-bg: #fee2e2;
+            --warning: #f59e0b;
+            --warning-bg: #fffbeb;
+
+            --todo-header: #2563eb;
+            --todo-bg: rgba(37, 99, 235, 0.04);
+            --progress-header: #d97706;
+            --progress-bg: rgba(217, 119, 6, 0.04);
+            --done-header: #059669;
+            --done-bg: rgba(5, 150, 105, 0.04);
+        }
+
+        [data-base-theme="dark"] {
+            --bg-app: #0b0f19;
+            --bg-card: #151f32;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #24324d;
+            --glass-bg: rgba(21, 31, 50, 0.7);
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+
+            --todo-bg: rgba(37, 99, 235, 0.08);
+            --progress-bg: rgba(217, 119, 6, 0.08);
+            --done-bg: rgba(5, 150, 105, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 24px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* AUTH OVERLAY */
+        #authOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at top right, var(--primary-glow), var(--bg-app));
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            backdrop-filter: blur(8px);
+        }
+
+        .auth-card {
+            background: var(--bg-card);
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 460px;
+        }
+
+        .auth-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            background: var(--bg-app);
+            padding: 4px;
+            border-radius: 12px;
+        }
+
+        .auth-tab {
+            flex: 1;
+            text-align: center;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            border-radius: 8px;
+        }
+
+        .auth-tab.active {
+            color: var(--text-main);
+            background: var(--bg-card);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .auth-card h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 6px;
+            letter-spacing: -0.025em;
+        }
+
+        .auth-card p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .auth-field {
+            margin-bottom: 16px;
+        }
+
+        .auth-field label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* HEADER SETUP */
+        .app-container {
+            display: none;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: var(--bg-card);
+            padding: 24px;
+            border-radius: 20px;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .project-title-input {
+            font-size: 1.5rem;
+            font-weight: 800;
+            border: 2px solid transparent;
+            background: transparent;
+            padding: 4px 8px;
+            color: var(--text-main);
+            width: 100%;
+            max-width: 325px;
+            border-radius: 8px;
+        }
+
+        .project-title-input:focus {
+            background: var(--bg-app);
+            border-color: var(--border-color);
+            outline: none;
+        }
+
+        .meta-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .user-badge {
+            background: var(--bg-app);
+            color: var(--text-main);
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .role-badge {
+            background: var(--warning-bg);
+            color: var(--warning);
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-left: 4px;
+        }
+
+        .role-badge.admin {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .logout-btn {
+            background: var(--danger-bg);
+            color: var(--danger);
+            font-size: 0.85rem;
+            padding: 8px 16px;
+            border-radius: 12px;
+        }
+
+        /* THEME SELECTOR ENGINE */
+        .theme-panel {
+            background: var(--bg-app);
+            padding: 16px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        .theme-section-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .theme-flex {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .base-toggle-group {
+            display: flex;
+            background: var(--bg-card);
+            padding: 4px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .base-toggle-btn {
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-radius: 6px;
+            background: transparent;
+        }
+
+        .base-toggle-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .color-palette-grid {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .color-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .color-swatch.active {
+            border-color: var(--text-main);
+            transform: scale(1.1);
+        }
+
+        /* LAYOUT & BOARD MAPS */
+        .setup-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .setup-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .form-panel {
+            background: var(--bg-app);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        .form-panel h3 {
+            font-size: 0.85rem;
+            margin-bottom: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background-color: var(--bg-card);
+            font-size: 0.9rem;
+            color: var(--text-main);
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px var(--primary-glow);
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            box-shadow: 0 4px 10px var(--primary-glow);
+        }
+
+        .tag-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .member-tag {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 6px 14px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .app-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        @media (min-width: 1200px) {
+            .app-layout {
+                grid-template-columns: 1fr 380px;
+            }
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        @media (min-width: 768px) {
+            .board {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+
+        .column {
+            border-radius: 20px;
+            padding: 20px;
+            min-height: 600px;
+            border: 1px solid var(--border-color);
+        }
+
+        .col-todo {
+            background-color: var(--todo-bg);
+        }
+
+        .col-progress {
+            background-color: var(--progress-bg);
+        }
+
+        .col-done {
+            background-color: var(--done-bg);
+        }
+
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .col-todo .column-header h2 {
+            color: var(--todo-header);
+            font-size: 1.1rem;
+        }
+
+        .col-progress .column-header h2 {
+            color: var(--progress-header);
+            font-size: 1.1rem;
+        }
+
+        .col-done .column-header h2 {
+            color: var(--done-header);
+            font-size: 1.1rem;
+        }
+
+        .task-count {
+            background: var(--bg-card);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: 1px solid var(--border-color);
+        }
+
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        /* MODERN TASK CARD CARDS */
+        .task-card {
+            background: var(--bg-card);
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .task-card-title {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .task-card-desc {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            white-space: pre-wrap;
+        }
+
+        .task-card-assignee {
+            background: var(--bg-app);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            align-self: flex-start;
+            border: 1px solid var(--border-color);
+        }
+
+        .task-card-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 6px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 12px;
+        }
+
+        .btn-action {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            background: var(--bg-app);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .btn-delete {
+            background: var(--danger-bg);
+            color: var(--danger);
+            border-color: transparent;
+            margin-right: auto;
+        }
+
+        /* COMPONENT SIDEBAR SECTIONS */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .widget {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+        }
+
+        .widget h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .widget p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .leaderboard-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            background: var(--bg-app);
+            border-radius: 12px;
+            font-size: 0.85rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .leaderboard-item.top-contributor {
+            border-left: 4px solid var(--success);
+            background: var(--success-bg);
+        }
+
+        .request-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--warning-bg);
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            margin-bottom: 10px;
+        }
+
+        /* NEW PRO COMMUNICATOR BLOCKS */
+        .comm-tabs {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-app);
+            padding: 4px;
+            border-radius: 10px;
+            margin-bottom: 14px;
+            border: 1px solid var(--border-color);
+        }
+
+        .comm-tab-btn {
+            flex: 1;
+            padding: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-muted);
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .comm-tab-btn.active {
+            background: var(--bg-card);
+            color: var(--text-main);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .chat-stream-box {
+            display: flex;
+            flex-direction: column;
+            height: 280px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: var(--bg-app);
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+
+        .chat-bubble {
+            padding: 8px 12px;
+            border-radius: 10px;
+            max-width: 85%;
+            word-break: break-word;
+            line-height: 1.4;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .chat-bubble.me {
+            background: var(--primary);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+
+        .chat-bubble.others {
+            background: var(--bg-card);
+            color: var(--text-main);
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+            border: 1px solid var(--border-color);
+        }
+
+        .chat-meta {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+            font-weight: 700;
+        }
+
+        .video-stream-box {
+            height: 280px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: #111827;
+            overflow: hidden;
+            display: none;
+            position: relative;
+        }
+
+        #videoFrameContainer {
+            width: 100%;
+            height: 100%;
+        }
+
+        .video-placeholder {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            color: #9ca3af;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.85rem;
+            gap: 12px;
+        }
+
+        /* ARTIFICIAL AI CHAT WORKFRAME */
+        .ai-chat-box {
+            display: flex;
+            flex-direction: column;
+            height: 220px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: var(--bg-app);
+            overflow: hidden;
+        }
+
+        .ai-messages {
+            flex: 1;
+            padding: 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+
+        .msg {
+            padding: 8px 12px;
+            border-radius: 10px;
+            max-width: 85%;
+        }
+
+        .msg.user {
+            background: #0284c7;
+            color: white;
+            align-self: flex-end;
+        }
+
+        .msg.gemini {
+            background: var(--bg-card);
+            color: var(--text-main);
+            align-self: flex-start;
+            border: 1px solid var(--border-color);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 24px 10px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-style: italic;
+        }
+    </style>
+</head>
+
+<body data-base-theme="light">
+
+    <!-- SECURE DOORWAY INTERCEPT (AUTH OVERLAY) -->
+    <div id="authOverlay">
+        <div class="auth-card">
+            <h1>Workspace Portal</h1>
+            <div class="auth-tabs">
+                <div class="auth-tab active" id="tabLogin" onclick="switchAuthMode('login')">Join Room</div>
+                <div class="auth-tab" id="tabRegister" onclick="switchAuthMode('register')">Create Room</div>
+            </div>
+            <p id="authSubtitle">Enter credentials to connect to your shared group space.</p>
+
+            <form id="authForm" onsubmit="event.preventDefault(); handleAuthSubmit();">
+                <div class="auth-field">
+                    <label for="authGroupId">Unique Room ID</label>
+                    <input type="text" id="authGroupId" placeholder="e.g., KANBAN-HUB-2026" required autocomplete="off">
+                </div>
+                <div class="auth-field">
+                    <label for="authPassword">Access Password</label>
+                    <input type="password" id="authPassword" placeholder="••••••••" required>
+                </div>
+                <div class="auth-field">
+                    <label for="authUserName">Your Name</label>
+                    <input type="text" id="authUserName" placeholder="e.g., David Miller" required autocomplete="off">
+                </div>
+                <button type="submit" id="authSubmitBtn" class="btn-primary"
+                    style="width: 100%; padding: 14px; margin-top: 10px;">Enter Dashboard</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD SHELL CONTAINER -->
+    <div class="app-container" id="appContainer">
+        <header>
+            <div class="header-top">
+                <div class="project-title-area">
+                    <h1 style="display:flex; align-items:center; gap:8px;">🔄 <input type="text" id="projectTitleInput"
+                            class="project-title-input"></h1>
+                </div>
+                <div class="meta-container">
+                    <div class="user-badge">🔑 Room: <span id="badgeRoom">?</span> | User: <span
+                            id="badgeUser">?</span><span id="badgeRole"></span></div>
+                    <button class="logout-btn" id="logoutBtn">Leave Room</button>
+                </div>
+            </div>
+
+            <!-- CUSTOM SYSTEM THEMING CORE -->
+            <div class="theme-panel">
+                <div class="theme-flex">
+                    <div>
+                        <div class="theme-section-title">Base Mode</div>
+                        <div class="base-toggle-group">
+                            <button class="base-toggle-btn active" id="btnBaseLight" onclick="setBaseTheme('light')">☀️
+                                Light</button>
+                            <button class="base-toggle-btn" id="btnBaseDark" onclick="setBaseTheme('dark')">🌙
+                                Dark</button>
+                        </div>
+                    </div>
+                    <div style="flex: 1;">
+                        <div class="theme-section-title">Accent Core Brand Swatches (12 Profiles)</div>
+                        <div class="color-palette-grid" id="colorPaletteGrid"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="setup-grid">
+                <!-- Room Roster -->
+                <div class="form-panel">
+                    <h3>👥 Team Roster</h3>
+                    <div class="input-group" id="adminAddControls" style="display:none;">
+                        <input type="text" id="memberNameInput" placeholder="Force-add team member profile...">
+                        <button class="btn-primary" id="addMemberBtn">Add</button>
+                    </div>
+                    <p id="nonAdminNotice" style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">⚠️
+                        Roster Locked. Only Room Admins can override manually.</p>
+                    <div class="tag-container" id="teamTagsContainer"></div>
+                </div>
+
+                <!-- Assignment Creator -->
+                <div class="form-panel">
+                    <h3>📋 Push Board Assignment</h3>
+                    <form id="taskForm" onsubmit="event.preventDefault();">
+                        <div style="display:flex; flex-direction:column; gap:8px;">
+                            <input type="text" id="taskTitleInput" placeholder="Task summary title..." required
+                                autocomplete="off">
+                            <textarea id="taskDescInput" rows="1" placeholder="Task description details..."></textarea>
+                            <div class="input-group" style="margin-bottom:0;">
+                                <select id="taskAssigneeSelect" required></select>
+                                <button type="submit" class="btn-primary">Add Task</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </header>
+
+        <div class="app-layout">
+            <!-- Matrix Columns Framework -->
+            <main class="board">
+                <section class="column col-todo">
+                    <div class="column-header">
+                        <h2>To Do</h2><span class="task-count" id="count-todo">0</span>
+                    </div>
+                    <div class="task-list" id="list-todo"></div>
+                </section>
+
+                <section class="column col-progress">
+                    <div class="column-header">
+                        <h2>In Progress</h2><span class="task-count" id="count-progress">0</span>
+                    </div>
+                    <div class="task-list" id="list-progress"></div>
+                </section>
+
+                <section class="column col-done">
+                    <div class="column-header">
+                        <h2>Done</h2><span class="task-count" id="count-done">0</span>
+                    </div>
+                    <div class="task-list" id="list-done"></div>
+                </section>
+            </main>
+
+            <!-- Sidebar Modules Compartment -->
+            <aside class="sidebar">
+
+                <!-- NEW COMPARTMENT: ADVANCED MEET & LIVE COMMUNICATOR HUB -->
+                <div class="widget" style="border: 2px solid var(--primary);">
+                    <h2>💬 Group Comm Center</h2>
+                    <p>Interact instantly via persistent text stream or encrypted video framework pipelines.</p>
+
+                    <div class="comm-tabs">
+                        <div class="comm-tab-btn active" id="tabShowChat" onclick="switchCommMode('chat')">💬 Group Chat
+                        </div>
+                        <div class="comm-tab-btn" id="tabShowVideo" onclick="switchCommMode('video')">📹 Video Room
+                        </div>
+                    </div>
+
+                    <!-- Compartment View A: Room Live Chat System -->
+                    <div id="commChatInterface">
+                        <div class="chat-stream-box">
+                            <div class="chat-messages" id="chatMessageContainer"></div>
+                        </div>
+                        <div class="input-group" style="margin-top: 8px; margin-bottom: 0;">
+                            <input type="text" id="chatInputMessage" placeholder="Type group message..."
+                                autocomplete="off">
+                            <button class="btn-primary" id="btnSendChatMessage"
+                                style="padding: 10px 14px;">Send</button>
+                        </div>
+                    </div>
+
+                    <!-- Compartment View B: WebRTC End-to-End Media Framework Frame -->
+                    <div id="commVideoInterface" class="video-stream-box">
+                        <div class="video-placeholder" id="videoBootScreen">
+                            <span>Ready to connect to the group's video stream?</span>
+                            <button class="btn-primary" onclick="launchVideoSession()"
+                                style="padding:8px 14px; font-size:0.8rem;">Launch Call Module</button>
+                        </div>
+                        <div id="videoFrameContainer"></div>
+                    </div>
+                </div>
+
+                <!-- Admin Privacy Guardkeeper widget -->
+                <div class="widget" id="adminGatekeeperWidget"
+                    style="display:none; border: 1px solid var(--warning); background: var(--warning-bg);">
+                    <h2 style="color:var(--warning);">🛡️ Privacy Admissions Queue</h2>
+                    <p style="margin-bottom:12px;">Approve peer team members asking to enter your sandbox board records.
+                    </p>
+                    <div id="permissionQueueList"></div>
+                </div>
+
+                <!-- Accountability Leadership Metrics -->
+                <div class="widget">
+                    <h2>🏆 Task Metrics</h2>
+                    <ul class="leaderboard-list" id="leaderboardList"></ul>
+                </div>
+
+                <!-- AI Partner Integration -->
+                <div class="widget" style="border-top: 4px solid #0284c7;">
+                    <h2 style="color: #0284c7;">✨ Gemini AI Teammate</h2>
+                    <input type="password" id="geminiApiKey" placeholder="Paste Google Gemini API Key..."
+                        style="font-size:0.75rem; padding:8px; margin-bottom:10px;">
+                    <div class="ai-chat-box">
+                        <div class="ai-messages" id="aiMessages">
+                            <div class="msg gemini">Hey! Drop your API credential key directly above to ask me layout
+                                logic blocks anytime!</div>
+                        </div>
+                        <div class="input-group" style="margin-bottom:0;">
+                            <input type="text" id="aiInput" placeholder="Ask Gemini..." autocomplete="off">
+                            <button id="aiSendBtn" class="btn-primary" style="background:#0284c7;">Send</button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+        const ACCENT_PALETTES = [
+            { name: "Indigo", hex: "#4f46e5", hover: "#4338ca" },
+            { name: "Emerald", hex: "#10b981", hover: "#059669" },
+            { name: "Crimson", hex: "#dc2626", hover: "#b91c1c" },
+            { name: "Amber", hex: "#f59e0b", hover: "#d97706" },
+            { name: "Violet", hex: "#7c3aed", hover: "#6d28d9" },
+            { name: "Teal", hex: "#0d9488", hover: "#0f766e" },
+            { name: "Rose", hex: "#e11d48", hover: "#be123c" },
+            { name: "Cyan", hex: "#0891b2", hover: "#0369a1" },
+            { name: "Orange", hex: "#ea580c", hover: "#c2410c" },
+            { name: "Fuchsia", hex: "#c084fc", hover: "#a855f7" },
+            { name: "Sky", hex: "#0284c7", hover: "#0369a1" },
+            { name: "Slate", hex: "#475569", hover: "#334155" }
+        ];
+
+        let mode = "login";
+        let jitsiApiInstance = null; // Stores WebRTC calling connection pointer references
+
+        let state = {
+            roomAdminToken: "", password: "", projectName: "Our Group Project",
+            members: [], tasks: [], pendingRequests: [],
+            chatStream: [] // Holds secure, unified system communication logs
+        };
+        let userConfig = { room: "", user: "", isAdmin: false, approved: false, baseTheme: "light", accentIndex: 0 };
+
+        function getDatabaseUrl() { return `https://kvdb.io/MN86SgYg7vXpXpXpXpXpXp/${userConfig.room.toLowerCase()}`; }
+
+        // --- CORE APPLICATION MULTI-COMM ENGINE CHANNELS ---
+        function switchCommMode(targetTab) {
+            document.getElementById('tabShowChat').className = targetTab === 'chat' ? 'comm-tab-btn active' : 'comm-tab-btn';
+            document.getElementById('tabShowVideo').className = targetTab === 'video' ? 'comm-tab-btn active' : 'comm-tab-btn';
+
+            document.getElementById('commChatInterface').style.display = targetTab === 'chat' ? 'block' : 'none';
+            document.getElementById('commVideoInterface').style.display = targetTab === 'video' ? 'block' : 'none';
+        }
+
+        async function sendGroupChatMessage() {
+            const field = document.getElementById('chatInputMessage');
+            const txt = field.value.trim();
+            if (!txt) return;
+
+            state.chatStream.push({ sender: userConfig.user, message: txt, stamp: Date.now() });
+            field.value = '';
+            await pushCloudState();
+            renderApp();
+        }
+
+        function launchVideoSession() {
+            document.getElementById('videoBootScreen').style.display = 'none';
+            const frameTarget = document.getElementById('videoFrameContainer');
+
+            // Build absolute distinct, uniquely hash-grouped meeting spaces mapping Room Configurations
+            const secureRoomId = `GroupSyncMeet2026-${userConfig.room.replace(/[^a-zA-Z0-9]/g, "")}`;
+
+            const options = {
+                roomName: secureRoomId,
+                width: '100%',
+                height: '100%',
+                parentNode: frameTarget,
+                userInfo: { displayName: userConfig.user },
+                configOverwrite: { startWithAudioMuted: true, startWithVideoMuted: true },
+                interfaceConfigOverwrite: { TOOLBAR_BUTTONS: ['microphone', 'camera', 'chat', 'tileview', 'hangup'] }
+            };
+            jitsiApiInstance = new JitsiMeetExternalAPI("meet.jit.si", options);
+        }
+
+        // --- THEME ENGINE RUNTIME IMPLEMENTATION ---
+        function initializeThemeGrid() {
+            const grid = document.getElementById('colorPaletteGrid'); grid.innerHTML = '';
+            ACCENT_PALETTES.forEach((palette, idx) => {
+                const button = document.createElement('div');
+                button.className = `color-swatch ${idx === userConfig.accentIndex ? 'active' : ''}`;
+                button.style.backgroundColor = palette.hex; button.title = palette.name;
+                button.onclick = () => setAccentTheme(idx); grid.appendChild(button);
+            });
+        }
+
+        function setBaseTheme(base) {
+            userConfig.baseTheme = base; document.body.setAttribute('data-base-theme', base);
+            document.getElementById('btnBaseLight').className = base === 'light' ? 'base-toggle-btn active' : 'base-toggle-btn';
+            document.getElementById('btnBaseDark').className = base === 'dark' ? 'base-toggle-btn active' : 'base-toggle-btn';
+            localStorage.setItem(`theme_base_${userConfig.room}`, base);
+        }
+
+        function setAccentTheme(index) {
+            userConfig.accentIndex = index; const chosen = ACCENT_PALETTES[index];
+            document.documentElement.style.setProperty('--primary', chosen.hex);
+            document.documentElement.style.setProperty('--primary-hover', chosen.hover);
+            document.documentElement.style.setProperty('--primary-glow', `${chosen.hex}26`);
+            localStorage.setItem(`theme_accent_${userConfig.room}`, index); initializeThemeGrid();
+        }
+
+        // --- AUTH PLATFORM CONTROLLERS ---
+        function switchAuthMode(targetMode) {
+            mode = targetMode;
+            document.getElementById('tabLogin').className = mode === 'login' ? 'auth-tab active' : 'auth-tab';
+            document.getElementById('tabRegister').className = mode === 'register' ? 'auth-tab active' : 'auth-tab';
+            document.getElementById('authSubtitle').textContent = mode === 'login' ? "Enter credentials to access a locked group room space." : "Initialize a protected workspace room.";
+            document.getElementById('authSubmitBtn').textContent = mode === 'login' ? "Request Access Entrance" : "Initialize Protected Room";
+        }
+
+        async function handleAuthSubmit() {
+            const btn = document.getElementById('authSubmitBtn'); btn.disabled = true; btn.textContent = "Verifying Signatures...";
+            userConfig.room = document.getElementById('authGroupId').value.trim().replace(/\s+/g, '-').toUpperCase();
+            userConfig.user = document.getElementById('authUserName').value.trim();
+            const passwordInput = document.getElementById('authPassword').value;
+
+            try {
+                let res = await fetch(getDatabaseUrl()); let cloudState = null;
+                if (res.status === 200) { cloudState = await res.json(); }
+
+                if (mode === "register") {
+                    if (cloudState) { throw new Error("This Room ID space already exists!"); }
+                    const generatedAdminToken = 'tok_' + Math.random().toString(36).substr(2, 9);
+                    state.roomAdminToken = generatedAdminToken; state.password = passwordInput;
+                    state.members = [userConfig.user]; state.projectName = `${userConfig.room} Board`; state.chatStream = [];
+                    localStorage.setItem(`admin_token_${userConfig.room}`, generatedAdminToken);
+                    userConfig.isAdmin = true; userConfig.approved = true; await pushCloudState();
+                } else {
+                    if (!cloudState) { throw new Error("Room space not found. Click 'Create Room' tab above!"); }
+                    if (cloudState.password !== passwordInput) { throw new Error("Incorrect access password."); }
+                    state = cloudState; const savedAdminToken = localStorage.getItem(`admin_token_${userConfig.room}`);
+                    if (savedAdminToken && savedAdminToken === state.roomAdminToken) { userConfig.isAdmin = true; userConfig.approved = true; }
+                    else if (state.members.includes(userConfig.user)) { userConfig.approved = true; userConfig.isAdmin = false; }
+                    else {
+                        if (!state.pendingRequests.includes(userConfig.user)) { state.pendingRequests.push(userConfig.user); await pushCloudState(); }
+                        btn.textContent = "Waiting for Admin Approval..."; pollForApproval(); return;
+                    }
+                }
+                launchAppView();
+            } catch (err) { alert(err.message); btn.disabled = false; btn.textContent = "Retry Access Connection"; }
+        }
+
+        async function pollForApproval() {
+            try {
+                let res = await fetch(getDatabaseUrl());
+                if (res.status === 200) {
+                    let remoteState = await res.json();
+                    if (remoteState.members.includes(userConfig.user)) { userConfig.approved = true; userConfig.isAdmin = false; state = remoteState; launchAppView(); return; }
+                    if (!remoteState.pendingRequests.includes(userConfig.user)) { throw new Error("Access request denied by Admin."); }
+                }
+                setTimeout(pollForApproval, 4000);
+            } catch (e) { alert(e.message); location.reload(); }
+        }
+
+        function launchAppView() {
+            document.getElementById('authOverlay').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'block';
+            document.getElementById('badgeRoom').textContent = userConfig.room;
+            document.getElementById('badgeUser').textContent = userConfig.user;
+
+            const rBadge = document.getElementById('badgeRole');
+            if (userConfig.isAdmin) {
+                rBadge.textContent = "Admin"; rBadge.className = "role-badge admin";
+                document.getElementById('adminAddControls').style.display = 'flex';
+                document.getElementById('nonAdminNotice').style.display = 'none';
+                document.getElementById('adminGatekeeperWidget').style.display = 'block';
+            } else { rBadge.textContent = "Member"; rBadge.className = "role-badge"; }
+
+            setBaseTheme(localStorage.getItem(`theme_base_${userConfig.room}`) || "light");
+            setAccentTheme(parseInt(localStorage.getItem(`theme_accent_${userConfig.room}`)) || 0);
+
+            projectTitleInput.value = state.projectName;
+            renderApp();
+            setInterval(pullCloudState, 4000);
+        }
+
+        // --- CLOUD SYNC PARSING CHANNELS ---
+        async function pushCloudState() { if (!userConfig.room) return; try { await fetch(getDatabaseUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(state) }); } catch (e) { } }
+        async function pullCloudState() {
+            if (!userConfig.room) return;
+            try {
+                let res = await fetch(getDatabaseUrl());
+                if (res.status === 200) {
+                    let incoming = await res.json();
+                    let currentLength = state.chatStream ? state.chatStream.length : 0;
+                    state = incoming;
+                    if (!userConfig.isAdmin) projectTitleInput.value = state.projectName;
+                    renderApp();
+                    if (state.chatStream && state.chatStream.length > currentLength) {
+                        const box = document.getElementById('chatMessageContainer'); box.scrollTop = box.scrollHeight;
+                    }
+                }
+            } catch (e) { }
+        }
+
+        window.resolveRequest = async function (applicantName, approve) {
+            state.pendingRequests = state.pendingRequests.filter(p => p !== applicantName);
+            if (approve && !state.members.includes(applicantName)) state.members.push(applicantName);
+            await pushCloudState(); renderApp();
+        };
+
+        // --- EVENT MATRIX INTEGRATIONS ---
+        document.getElementById('logoutBtn').addEventListener('click', () => { if (jitsiApiInstance) jitsiApiInstance.dispose(); location.reload(); });
+        projectTitleInput.addEventListener('change', async (e) => { if (!userConfig.isAdmin) return; state.projectName = e.target.value; await pushCloudState(); });
+        document.getElementById('btnSendChatMessage').addEventListener('click', sendGroupChatMessage);
+        document.getElementById('chatInputMessage').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendGroupChatMessage(); });
+
+        document.getElementById('addMemberBtn').addEventListener('click', async () => {
+            const name = document.getElementById('memberNameInput').value.trim(); if (!name || state.members.includes(name)) return;
+            state.members.push(name); document.getElementById('memberNameInput').value = ''; await pushCloudState(); renderApp();
+        });
+
+        document.getElementById('taskForm').addEventListener('submit', async () => {
+            state.tasks.push({
+                id: 'task_' + Date.now(), title: document.getElementById('taskTitleInput').value.trim(),
+                description: document.getElementById('taskDescInput').value.trim(),
+                assignee: document.getElementById('taskAssigneeSelect').value, status: 'todo'
+            });
+            document.getElementById('taskTitleInput').value = ''; document.getElementById('taskDescInput').value = '';
+            await pushCloudState(); renderApp();
+        });
+
+        window.moveTask = async function (id, status) { const t = state.tasks.find(tk => tk.id === id); if (t) { t.status = status; await pushCloudState(); renderApp(); } };
+        window.deleteTask = async function (id) { state.tasks = state.tasks.filter(tk => tk.id !== id); await pushCloudState(); renderApp(); };
+
+        // --- DYNAMIC RENDERING ARCHITECTURE ---
+        const projectTitleInput = document.getElementById('projectTitleInput');
+        const teamTagsContainer = document.getElementById('teamTagsContainer');
+        const taskAssigneeSelect = document.getElementById('taskAssigneeSelect');
+        const listTodo = document.getElementById('list-todo'); const listProgress = document.getElementById('list-progress'); const listDone = document.getElementById('list-done');
+
+        function renderApp() {
+            if (userConfig.isAdmin) {
+                const qBox = document.getElementById('permissionQueueList');
+                if (!state.pendingRequests || state.pendingRequests.length === 0) { qBox.innerHTML = '<div class="empty-state" style="padding:4px;">No join requests.</div>'; }
+                else {
+                    qBox.innerHTML = '';
+                    state.pendingRequests.forEach(p => {
+                        const div = document.createElement('div'); div.className = 'request-item';
+                        div.innerHTML = `<span>👤 <strong>${escapeHTML(p)}</strong></span><div><button class="btn-approve" onclick="resolveRequest('${p}', true)">Grant</button><button class="btn-deny" onclick="resolveRequest('${p}', false)">Deny</button></div>`;
+                        qBox.appendChild(div);
+                    });
+                }
+            }
+
+            // Chat Stream Render Elements
+            const chatBox = document.getElementById('chatMessageContainer');
+            chatBox.innerHTML = '';
+            if (!state.chatStream || state.chatStream.length === 0) {
+                chatBox.innerHTML = '<div class="empty-state">No group messages exchanged yet.</div>';
+            } else {
+                state.chatStream.forEach(msg => {
+                    const wrap = document.createElement('div');
+                    const isMe = msg.sender === userConfig.user;
+                    wrap.className = `chat-bubble ${isMe ? 'me' : 'others'}`;
+                    wrap.innerHTML = `<div class="chat-meta">${isMe ? 'You' : escapeHTML(msg.sender)}</div><div>${escapeHTML(msg.message)}</div>`;
+                    chatBox.appendChild(wrap);
+                });
+            }
+
+            teamTagsContainer.innerHTML = ''; taskAssigneeSelect.innerHTML = '<option value="" disabled selected>Assign to...</option>';
+            state.members.forEach(m => {
+                const span = document.createElement('span'); span.className = 'member-tag'; span.textContent = m; teamTagsContainer.appendChild(span);
+                const opt = document.createElement('option'); opt.value = m; opt.textContent = m + (m === userConfig.user ? " (You)" : ""); taskAssigneeSelect.appendChild(opt);
+            });
+
+            listTodo.innerHTML = ''; listProgress.innerHTML = ''; listDone.innerHTML = '';
+            const groups = { todo: [], progress: [], done: [] };
+            state.tasks.forEach(t => { if (groups[t.status]) groups[t.status].push(t); });
+
+            document.getElementById('count-todo').textContent = groups.todo.length;
+            document.getElementById('count-progress').textContent = groups.progress.length;
+            document.getElementById('count-done').textContent = groups.done.length;
+
+            Object.keys(groups).forEach(col => {
+                const el = col === 'todo' ? listTodo : col === 'progress' ? listProgress : listDone;
+                if (groups[col].length === 0) { el.innerHTML = '<div class="empty-state">No cards tracked.</div>'; return; }
+
+                groups[col].forEach(t => {
+                    const card = document.createElement('div'); card.className = 'task-card';
+                    let act = `<button class="btn-action btn-delete" onclick="deleteTask('${t.id}')">Delete</button>`;
+                    if (col === 'todo') act += `<button class="btn-action btn-primary" onclick="moveTask('${t.id}', 'progress')">Work →</button>`;
+                    if (col === 'progress') act += `<button class="btn-action" onclick="moveTask('${t.id}', 'todo')">← Back</button><button class="btn-action btn-primary" style="background:var(--success);color:white;box-shadow:none;" onclick="moveTask('${t.id}', 'done')">Done ✔</button>`;
+                    if (col === 'done') act += `<button class="btn-action" onclick="moveTask('${t.id}', 'progress')">← Reopen</button>`;
+
+                    card.innerHTML = `<div class="task-card-title">${escapeHTML(t.title)}</div>
+                        ${t.description ? `<div class="task-card-desc">${escapeHTML(t.description)}</div>` : ''}
+                        <div class="task-card-assignee">👤 ${escapeHTML(t.assignee)}</div><div class="task-card-actions">${act}</div>`;
+                    el.appendChild(card);
+                });
+            });
+
+            leaderboardList.innerHTML = ''; const scores = {}; state.members.forEach(m => scores[m] = 0);
+            state.tasks.forEach(t => { if (t.status === 'done' && scores[t.assignee] !== undefined) scores[t.assignee]++; });
+            const high = Math.max(...Object.values(scores));
+            state.members.forEach(m => {
+                const li = document.createElement('li'); li.className = `leaderboard-item ${scores[m] === high && high > 0 ? 'top-contributor' : ''}`;
+                li.innerHTML = `<span><strong>${escapeHTML(m)}</strong> ${scores[m] === high && high > 0 ? '👑' : ''}</span> <span>Finished: <strong>${scores[m]}</strong></span>`;
+                leaderboardList.appendChild(li);
+            });
+        }
+
+        // --- GEMINI ARTIFICIAL SYSTEM INTERFACING CODE ---
+        const aiMessages = document.getElementById('aiMessages');
+        document.getElementById('aiSendBtn').addEventListener('click', handleAiQuery);
+        document.getElementById('aiInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') handleAiQuery(); });
+
+        async function handleAiQuery() {
+            const query = document.getElementById('aiInput').value.trim(); if (!query) return;
+            appendMessage(query, 'user'); document.getElementById('aiInput').value = '';
+            const key = document.getElementById('geminiApiKey').value.trim();
+            if (!key) { setTimeout(() => { appendMessage("Paste your API credential token above to unblock this live chat module!", 'gemini'); }, 400); return; }
+
+            appendMessage("Thinking...", 'gemini', true);
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: `You are an expert AI peer collaborator in a group workspace. Question: ${query}` }] }] })
+                });
+                const data = await res.json(); document.getElementById('ai-loading-bubble').remove();
+                if (data.candidates && data.candidates[0].content.parts[0].text) { appendMessage(data.candidates[0].content.parts[0].text, 'gemini'); } else { appendMessage("Token exception reading values.", 'gemini'); }
+            } catch (e) { document.getElementById('ai-loading-bubble').remove(); appendMessage("Network connection lost.", 'gemini'); }
+        }
+
+        function appendMessage(text, sender, isLoad = false) {
+            const div = document.createElement('div'); div.className = `msg ${sender}`; if (isLoad) div.id = "ai-loading-bubble";
+            div.textContent = text; aiMessages.appendChild(div); aiMessages.scrollTop = aiMessages.scrollHeight;
+        }
+
+        function escapeHTML(str) { if (!str) return ''; return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+        initializeThemeGrid();
+    </script>
+</body>
+
+</html>
